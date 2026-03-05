@@ -17,8 +17,8 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
-                .cors(cors -> {}) // bật CORS
-                .csrf(csrf -> csrf.disable()) // tắt CSRF nếu dùng API
+                .cors(cors -> {})
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().permitAll()
                 );
@@ -31,10 +31,8 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 🔥 Cho phép frontend Vercel của bạn
-        configuration.setAllowedOrigins(
-                List.of("https://test-go-dqup.vercel.app")
-        );
+        // 🔥 MỞ TOÀN BỘ ORIGIN
+        configuration.setAllowedOriginPatterns(List.of("*"));
 
         configuration.setAllowedMethods(
                 List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
