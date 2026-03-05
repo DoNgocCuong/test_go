@@ -6,8 +6,10 @@ import com.example.test_golden_owl.entity.MonThi;
 import com.example.test_golden_owl.entity.NgoaiNgu;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -17,6 +19,7 @@ import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
+@Order(1)
 public class DataInitializer implements CommandLineRunner {
 
     private final MonThiRepository monThiRepository;
@@ -27,7 +30,14 @@ public class DataInitializer implements CommandLineRunner {
             "https://raw.githubusercontent.com/GoldenOwlAsia/webdev-intern-assignment-3/main/dataset/diem_thi_thpt_2024.csv";
 
     @Override
+    @Transactional
     public void run(String... args) throws Exception {
+        System.out.println("Database: " +
+                jdbcTemplate.queryForObject("SELECT DATABASE()", String.class));
+
+        System.out.println("Hostname: " +
+                jdbcTemplate.queryForObject("SELECT @@hostname", String.class));
+
 
         Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM diem_thi", Long.class);
         if (count != null && count > 0) {
