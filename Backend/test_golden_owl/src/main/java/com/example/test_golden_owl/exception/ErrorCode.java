@@ -13,8 +13,8 @@ public enum ErrorCode {
     UNAUTHORIZED("1002", "You do not have permission", HttpStatus.FORBIDDEN),
     INVALID_KEY("1009", "Uncategorized error", HttpStatus.BAD_REQUEST),
     CANDIDATE_NOT_EXIST("1003","Thí sinh không tồn tại",HttpStatus.BAD_REQUEST),
-    SUBJECT_NOT_EXIST("1004","Môn học khng tồn tại",HttpStatus.BAD_REQUEST),
-    OTHER_LANGUAGE_NOT_EXIST("1005","Mã ngôn ngữ không tồn tại",HttpStatus.BAD_REQUEST);
+    SUBJECT_NOT_EXIST("1004","Môn học không tồn tại",HttpStatus.BAD_REQUEST),
+    OTHER_LANGUAGE_NOT_EXIST("1005","Mã ngôn ngữ không tồn tại",HttpStatus.BAD_REQUEST),;
 
     ErrorCode(String code, String message, HttpStatus httpStatusCode) {
         this.code = code;

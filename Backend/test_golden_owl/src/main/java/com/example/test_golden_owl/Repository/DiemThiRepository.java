@@ -11,14 +11,26 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface DiemThiRepository extends JpaRepository<DiemThi,Long> {
-    List<DiemThi> findAllBySbd(String sbd);
+
+    // ✅ Tối ưu checkScore (giữ nguyên)
+    @Query("""
+           SELECT d
+           FROM DiemThi d
+           JOIN FETCH d.monThi
+           LEFT JOIN FETCH d.ngoaiNgu
+           WHERE d.sbd = :sbd
+           """)
+    List<DiemThi> findAllBySbd(@Param("sbd") String sbd);
+
+
+    // ✅ FIX lỗi Long mismatch + tối ưu CASE
     @Query("""
     SELECT new com.example.test_golden_owl.dto.Response.ReportResponse(
         m.tenMon,
-        COALESCE(SUM(CASE WHEN d.diem >= 8 THEN 1 ELSE 0 END),0),
-        COALESCE(SUM(CASE WHEN d.diem < 8 AND d.diem >= 6 THEN 1 ELSE 0 END),0),
-        COALESCE(SUM(CASE WHEN d.diem < 6 AND d.diem >= 4 THEN 1 ELSE 0 END),0),
-        COALESCE(SUM(CASE WHEN d.diem < 4 THEN 1 ELSE 0 END),0)
+        SUM(CASE WHEN d.diem >= 8 THEN 1L ELSE 0L END),
+        SUM(CASE WHEN d.diem >= 6 AND d.diem < 8 THEN 1L ELSE 0L END),
+        SUM(CASE WHEN d.diem >= 4 AND d.diem < 6 THEN 1L ELSE 0L END),
+        SUM(CASE WHEN d.diem < 4 THEN 1L ELSE 0L END)
     )
     FROM DiemThi d
     JOIN d.monThi m
@@ -26,19 +38,26 @@ public interface DiemThiRepository extends JpaRepository<DiemThi,Long> {
     GROUP BY m.tenMon
     """)
     ReportResponse reportBySubject(@Param("tenMon") String tenMon);
+
+
     @Query("""
     SELECT new com.example.test_golden_owl.dto.Response.TopResponse(
         d.sbd,
-        SUM(CASE WHEN m.tenMon = 'Toán' THEN d.diem ELSE 0 END),
-        SUM(CASE WHEN m.tenMon = 'Vật Lý' THEN d.diem ELSE 0 END),
-        SUM(CASE WHEN m.tenMon = 'Hóa Học' THEN d.diem ELSE 0 END),
+        SUM(CASE WHEN d.monThi.id = :toanId THEN d.diem ELSE 0.0 END),
+        SUM(CASE WHEN d.monThi.id = :lyId THEN d.diem ELSE 0.0 END),
+        SUM(CASE WHEN d.monThi.id = :hoaId THEN d.diem ELSE 0.0 END),
         SUM(d.diem)
     )
     FROM DiemThi d
-    JOIN d.monThi m
-    WHERE m.tenMon IN ('Toán','Vật Lý','Hóa Học')
+    WHERE d.monThi.id IN (:toanId, :lyId, :hoaId)
     GROUP BY d.sbd
     ORDER BY SUM(d.diem) DESC
     """)
-    List<TopResponse> topKhoiA(Pageable pageable);
+    List<TopResponse> topKhoiA(
+            @Param("toanId") Long toanId,
+            @Param("lyId") Long lyId,
+            @Param("hoaId") Long hoaId,
+            Pageable pageable
+    );
+
 }

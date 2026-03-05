@@ -1,11 +1,17 @@
+
+
 CREATE TABLE mon_thi (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     ten_mon VARCHAR(100) NOT NULL UNIQUE
 );
 
+
+
 CREATE TABLE ngoai_ngu (
     ma_ngoai_ngu VARCHAR(10) PRIMARY KEY
 );
+
+
 
 CREATE TABLE diem_thi (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -28,5 +34,26 @@ CREATE TABLE diem_thi (
         ON UPDATE CASCADE
 );
 
+
+
 CREATE UNIQUE INDEX uk_sbd_mon
 ON diem_thi (sbd, mon_thi_id);
+
+
+
+
+CREATE INDEX idx_diemthi_sbd
+ON diem_thi (sbd);
+
+
+CREATE INDEX idx_diemthi_mon_thi_id
+ON diem_thi (mon_thi_id);
+
+
+CREATE INDEX idx_mon_diem
+ON diem_thi (mon_thi_id, diem);
+
+CREATE INDEX idx_diemthi_ma_ngoai_ngu
+ON diem_thi (ma_ngoai_ngu);
+
+ANALYZE TABLE diem_thi;
