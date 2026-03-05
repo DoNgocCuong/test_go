@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: golden_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: test_golden
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend:
+    build: ./Backend
+    container_name: golden_backend
+    restart: always
+    depends_on:
+      - mysql
+    env_file:
+      - .env
+    ports:
+      - "${PORT}:8080"
+
+  frontend:
+    build: ./Frontend
+    container_name: golden_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
