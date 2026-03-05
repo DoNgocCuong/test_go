@@ -5,24 +5,23 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
-@Configuration
 
+@Configuration
 public class SecurityConfig {
+
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
-        corsConfiguration.addAllowedOrigin("http://localhost:5173");
-        corsConfiguration.addAllowedOrigin("http://127.0.0.1:5500");
-        corsConfiguration.addAllowedOrigin("https://smart-restaurant-silk.vercel.app");
-        corsConfiguration.addAllowedMethod("*"); // cho phép tất cả các method (GET, POST, PUT, DELETE, ...)
-        corsConfiguration.addAllowedHeader("*"); // cho phép tất cả các header
-        corsConfiguration.setAllowCredentials(true); // cho phép gửi cookie
 
-        UrlBasedCorsConfigurationSource urlBasedCorsConfigurationSource =
-                new UrlBasedCorsConfigurationSource(); // ánh xạ cấu hình CORS cho các endpoint
-        urlBasedCorsConfigurationSource.registerCorsConfiguration(
-                "/**", corsConfiguration); // áp dụng cấu hình CORS cho tất cả các endpoint
+        corsConfiguration.addAllowedOriginPattern("*"); // cho phép mọi domain
+        corsConfiguration.addAllowedMethod("*");
+        corsConfiguration.addAllowedHeader("*");
+        corsConfiguration.setAllowCredentials(true);
 
-        return new CorsFilter(urlBasedCorsConfigurationSource);
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", corsConfiguration);
+
+        return new CorsFilter(source);
     }
 }
