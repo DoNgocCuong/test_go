@@ -6,7 +6,7 @@ spring:
     name: test_golden_owl
 
   datasource:
-    url: ${DATABASE_URL}
+    url: jdbc:mysql://${DB_HOST:NULL}:${DB_PORT:NULL}/${DB_NAME:NULL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
