@@ -22,7 +22,7 @@ services:
     depends_on:
       - mysql
     env_file:
-      - .env
+      - .env   # ✅ lấy từ root
     ports:
       - "${PORT}:8080"
     environment:
@@ -37,7 +37,7 @@ services:
       context: .
       dockerfile: ./Frontend/Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        VITE_API_URL: ${VITE_API_URL}  # ✅ lấy từ root .env
     container_name: golden_frontend
     restart: always
     ports:

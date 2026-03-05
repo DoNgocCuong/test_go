@@ -6,7 +6,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
-import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -16,16 +16,11 @@ public class SecurityConfig {
 
         CorsConfiguration corsConfiguration = new CorsConfiguration();
 
-        corsConfiguration.setAllowedOrigins(Arrays.asList(
-                "https://test-go-dqup-cuongdn160624-5941s-projects.vercel.app"
-        ));
+        corsConfiguration.setAllowedOriginPatterns(List.of("*"));
 
-        corsConfiguration.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS"
-        ));
+        corsConfiguration.addAllowedMethod("*");
 
-
-        corsConfiguration.setAllowedHeaders(Arrays.asList("*"));
+        corsConfiguration.addAllowedHeader("*");
 
         corsConfiguration.setAllowCredentials(false);
 
