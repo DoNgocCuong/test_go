@@ -1,12 +1,12 @@
 package com.example.test_golden_owl.config;
 
-import com.example.test_golden_owl.Repository.*;
-import com.example.test_golden_owl.entity.*;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.transaction.Transactional;
+import com.example.test_golden_owl.Repository.MonThiRepository;
+import com.example.test_golden_owl.Repository.NgoaiNguRepository;
+import com.example.test_golden_owl.entity.MonThi;
+import com.example.test_golden_owl.entity.NgoaiNgu;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
@@ -20,30 +20,22 @@ import java.util.stream.Collectors;
 public class DataInitializer implements CommandLineRunner {
 
     private final MonThiRepository monThiRepository;
-    private final DiemThiRepository diemThiRepository;
     private final NgoaiNguRepository ngoaiNguRepository;
-
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final String CSV_URL =
             "https://raw.githubusercontent.com/GoldenOwlAsia/webdev-intern-assignment-3/main/dataset/diem_thi_thpt_2024.csv";
 
     @Override
-    @Transactional
     public void run(String... args) throws Exception {
 
-        if (diemThiRepository.count() > 0) return;
+        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM diem_thi", Long.class);
+        if (count != null && count > 0) {
+            System.out.println("Data already exists. Skip import.");
+            return;
+        }
 
-        System.out.println(">>> START IMPORT <<<");
-
-        int maxRows = 10000;
-        int batchSize = 1000;
-        int count = 0;
-
-        // ==============================
-        // 1. Subject mapping
-        // ==============================
+        System.out.println(">>> START FAST IMPORT <<<");
 
         Map<String, String> subjectMap = Map.of(
                 "toan", "Toán",
@@ -57,14 +49,10 @@ public class DataInitializer implements CommandLineRunner {
                 "gdcd", "GDCD"
         );
 
-        // Tạo môn nếu chưa có
+        // Tạo môn thi nếu chưa có
         subjectMap.values().forEach(tenMon -> {
             if (!monThiRepository.existsByTenMon(tenMon)) {
-                monThiRepository.save(
-                        MonThi.builder()
-                                .tenMon(tenMon)
-                                .build()
-                );
+                monThiRepository.save(MonThi.builder().tenMon(tenMon).build());
             }
         });
 
@@ -78,77 +66,80 @@ public class DataInitializer implements CommandLineRunner {
                         .stream()
                         .collect(Collectors.toMap(NgoaiNgu::getMaNgoaiNgu, n -> n));
 
-        // ==============================
-        // 2. Read CSV
-        // ==============================
-
         URL url = new URL(CSV_URL);
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(url.openStream()));
 
-        String headerLine = reader.readLine();
-        String[] headers = headerLine.split(",");
-
+        String[] headers = reader.readLine().split(",");
         String line;
 
-        while ((line = reader.readLine()) != null) {
+        int batchSize = 1000;
+        int totalInserted = 0;
+        List<Object[]> batchArgs = new ArrayList<>();
 
-            if (count >= maxRows) break;
+        while ((line = reader.readLine()) != null) {
 
             String[] columns = line.split(",", -1);
             String sbd = columns[0];
 
-            // Ngoại ngữ
             String maNgoaiNgu = columns[headers.length - 1];
-            NgoaiNgu ngoaiNgu = null;
+            String ngoaiNguKey = null;
 
             if (!maNgoaiNgu.isBlank()) {
-                ngoaiNgu = ngoaiNguMap.get(maNgoaiNgu);
 
-                if (ngoaiNgu == null) {
-                    ngoaiNgu = new NgoaiNgu();
-                    ngoaiNgu.setMaNgoaiNgu(maNgoaiNgu);
-                    ngoaiNgu = ngoaiNguRepository.save(ngoaiNgu);
-                    ngoaiNguMap.put(maNgoaiNgu, ngoaiNgu);
+                NgoaiNgu nn = ngoaiNguMap.get(maNgoaiNgu);
+
+                if (nn == null) {
+                    nn = new NgoaiNgu();
+                    nn.setMaNgoaiNgu(maNgoaiNgu);
+                    nn = ngoaiNguRepository.save(nn);
+                    ngoaiNguMap.put(maNgoaiNgu, nn);
                 }
+
+                ngoaiNguKey = nn.getMaNgoaiNgu(); // String PK
             }
 
-            // Điểm từng môn
             for (int i = 1; i < headers.length - 1; i++) {
 
                 if (!columns[i].isBlank()) {
 
                     Double diem = Double.parseDouble(columns[i]);
-
                     String tenMon = subjectMap.get(headers[i]);
                     MonThi monThi = monThiMap.get(tenMon);
 
-                    DiemThi diemThi = new DiemThi();
-                    diemThi.setSbd(sbd);
-                    diemThi.setMonThi(monThi);
-                    diemThi.setDiem(diem);
-
-                    if (headers[i].equals("ngoai_ngu")) {
-                        diemThi.setNgoaiNgu(ngoaiNgu);
-                    }
-
-                    diemThiRepository.save(diemThi);
+                    batchArgs.add(new Object[]{
+                            sbd,
+                            monThi.getId(),
+                            diem,
+                            headers[i].equals("ngoai_ngu") ? ngoaiNguKey : null
+                    });
                 }
             }
 
-            count++;
+            if (batchArgs.size() >= batchSize) {
 
-            if (count % batchSize == 0) {
-                entityManager.flush();
-                entityManager.clear();
-                System.out.println("Inserted: " + count);
+                jdbcTemplate.batchUpdate(
+                        "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) VALUES (?, ?, ?, ?)",
+                        batchArgs
+                );
+
+                totalInserted += batchArgs.size();
+                batchArgs.clear();
+
+                System.out.println("Inserted rows: " + totalInserted);
             }
         }
 
-        entityManager.flush();
-        entityManager.clear();
+        if (!batchArgs.isEmpty()) {
+            jdbcTemplate.batchUpdate(
+                    "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) VALUES (?, ?, ?, ?)",
+                    batchArgs
+            );
+            totalInserted += batchArgs.size();
+        }
+
         reader.close();
 
-        System.out.println(">>> IMPORT DONE: " + count + " records <<<");
+        System.out.println(">>> IMPORT DONE. Total rows: " + totalInserted + " <<<");
     }
 }
