@@ -2,9 +2,11 @@ package com.example.test_golden_owl.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 
 import java.util.List;
 
@@ -12,23 +14,41 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public CorsFilter corsFilter() {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
-        CorsConfiguration corsConfiguration = new CorsConfiguration();
+        http
+                .cors(cors -> {}) // bật CORS
+                .csrf(csrf -> csrf.disable()) // tắt CSRF nếu dùng API
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll()
+                );
 
-        corsConfiguration.setAllowedOriginPatterns(List.of("*"));
+        return http.build();
+    }
 
-        corsConfiguration.addAllowedMethod("*");
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
 
-        corsConfiguration.addAllowedHeader("*");
+        CorsConfiguration configuration = new CorsConfiguration();
 
-        corsConfiguration.setAllowCredentials(false);
+        // 🔥 Cho phép frontend Vercel của bạn
+        configuration.setAllowedOrigins(
+                List.of("https://test-go-dqup.vercel.app")
+        );
+
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
+        );
+
+        configuration.setAllowedHeaders(List.of("*"));
+
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/**", corsConfiguration);
+        source.registerCorsConfiguration("/**", configuration);
 
-        return new CorsFilter(source);
+        return source;
     }
 }

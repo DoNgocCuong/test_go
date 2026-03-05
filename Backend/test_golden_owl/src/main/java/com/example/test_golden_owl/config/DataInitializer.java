@@ -9,7 +9,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -30,18 +29,19 @@ public class DataInitializer implements CommandLineRunner {
             "https://raw.githubusercontent.com/GoldenOwlAsia/webdev-intern-assignment-3/main/dataset/diem_thi_thpt_2024.csv";
 
     @Override
-    @Transactional
     public void run(String... args) throws Exception {
+
         System.out.println("Database: " +
                 jdbcTemplate.queryForObject("SELECT DATABASE()", String.class));
 
-        System.out.println("Hostname: " +
-                jdbcTemplate.queryForObject("SELECT @@hostname", String.class));
+        // 🔥 Kiểm tra nếu đã có dữ liệu thì bỏ qua
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM diem_thi",
+                Long.class
+        );
 
-
-        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM diem_thi", Long.class);
         if (count != null && count > 0) {
-            System.out.println("Data already exists. Skip import.");
+            System.out.println("Data already exists (" + count + " rows). Skip import.");
             return;
         }
 
@@ -106,7 +106,7 @@ public class DataInitializer implements CommandLineRunner {
                     ngoaiNguMap.put(maNgoaiNgu, nn);
                 }
 
-                ngoaiNguKey = nn.getMaNgoaiNgu(); // String PK
+                ngoaiNguKey = nn.getMaNgoaiNgu();
             }
 
             for (int i = 1; i < headers.length - 1; i++) {
@@ -129,7 +129,10 @@ public class DataInitializer implements CommandLineRunner {
             if (batchArgs.size() >= batchSize) {
 
                 jdbcTemplate.batchUpdate(
-                        "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) VALUES (?, ?, ?, ?)",
+                        // 🔥 Thêm ON DUPLICATE để không crash
+                        "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) " +
+                                "VALUES (?, ?, ?, ?) " +
+                                "ON DUPLICATE KEY UPDATE diem = VALUES(diem)",
                         batchArgs
                 );
 
@@ -142,7 +145,9 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!batchArgs.isEmpty()) {
             jdbcTemplate.batchUpdate(
-                    "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) " +
+                            "VALUES (?, ?, ?, ?) " +
+                            "ON DUPLICATE KEY UPDATE diem = VALUES(diem)",
                     batchArgs
             );
             totalInserted += batchArgs.size();
@@ -150,6 +155,6 @@ public class DataInitializer implements CommandLineRunner {
 
         reader.close();
 
-        System.out.println(">>> IMPORT DONE. Total rows: " + totalInserted + " <<<");
+        System.out.println(">>> IMPORT DONE. Total processed: " + totalInserted + " <<<");
     }
 }
