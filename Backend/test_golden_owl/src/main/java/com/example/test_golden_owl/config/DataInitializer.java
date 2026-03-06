@@ -164,9 +164,9 @@ public class DataInitializer implements CommandLineRunner {
                             batchArgs
                     );
                     totalInserted += batchArgs.size();
-                    System.out.println("Inserted rows: " + totalInserted);
+                    System.out.println("Inserted rows diem_thi table: " + totalInserted);
                 } catch (Exception e) {
-                    System.err.println("❌ BATCH INSERT ERROR: " + e.getMessage());
+                    System.err.println(" BATCH INSERT ERROR: " + e.getMessage());
                     e.printStackTrace();
                 }
                 batchArgs.clear();
@@ -184,7 +184,7 @@ public class DataInitializer implements CommandLineRunner {
                 );
                 totalInserted += batchArgs.size();
             } catch (Exception e) {
-                System.err.println("❌ FINAL BATCH INSERT ERROR: " + e.getMessage());
+                System.err.println(" FINAL BATCH INSERT ERROR: " + e.getMessage());
                 e.printStackTrace();
             }
         }
@@ -193,7 +193,7 @@ public class DataInitializer implements CommandLineRunner {
 
         System.out.println(">>> IMPORT DONE. Total processed: " + totalInserted + " <<<");
         if (skippedRows > 0) {
-            System.out.println("⚠️ Skipped rows (thiếu cột): " + skippedRows);
+            System.out.println(" Skipped rows (thiếu cột): " + skippedRows);
         }
     }
 }
