@@ -17,7 +17,7 @@
 
 ```bash
 git clone <repo_url>
-cd test-golden
+cd test-go
 ```
 
 ### 2. Sửa file `.env`
