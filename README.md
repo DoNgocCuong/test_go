@@ -20,35 +20,19 @@ git clone <repo_url>
 cd test-go
 ```
 
-### 2. Sửa file `.env`
-
-File `.env` ở thư mục gốc (cùng cấp với `docker-compose.yml`) với nội dung sau:
-
-```env
-DB_PASSWORD=yourpassword
-DB_HOST=mysql
-DB_PORT=3306
-DB_NAME=test_golden
-DB_USERNAME=root
-PORT=8080
-VITE_API_URL=http://localhost:8080
-```
-
-> ⚠️ Thay `yourpassword` bằng mật khẩu bạn muốn đặt cho MySQL.
-
-### 3. Chạy Docker
+### 2. Chạy Docker
 
 ```bash
 docker-compose up -d --build
 ```
 
-### 4. Chờ import dữ liệu
+### 3. Chờ import dữ liệu
 
 Backend sẽ tự động tải và import dữ liệu điểm thi.
 
 ---
 
-## 🌐 Truy cập ứng dụng
+## 4 🌐 Truy cập ứng dụng
 
 | Service  | URL                          |
 |----------|------------------------------|
