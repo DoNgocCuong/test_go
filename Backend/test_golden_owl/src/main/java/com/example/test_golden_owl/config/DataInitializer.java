@@ -9,6 +9,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -29,12 +30,13 @@ public class DataInitializer implements CommandLineRunner {
             "https://raw.githubusercontent.com/GoldenOwlAsia/webdev-intern-assignment-3/main/dataset/diem_thi_thpt_2024.csv";
 
     @Override
+    @Transactional
     public void run(String... args) throws Exception {
 
         System.out.println("Database: " +
                 jdbcTemplate.queryForObject("SELECT DATABASE()", String.class));
 
-        // 🔥 Kiểm tra nếu đã có dữ liệu thì bỏ qua
+        // Kiểm tra nếu đã có dữ liệu thì bỏ qua
         Long count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM diem_thi",
                 Long.class
@@ -47,17 +49,16 @@ public class DataInitializer implements CommandLineRunner {
 
         System.out.println(">>> START FAST IMPORT <<<");
 
-        Map<String, String> subjectMap = Map.of(
-                "toan", "Toán",
-                "ngu_van", "Ngữ Văn",
-                "ngoai_ngu", "Ngoại Ngữ",
-                "vat_li", "Vật Lý",
-                "hoa_hoc", "Hóa Học",
-                "sinh_hoc", "Sinh Học",
-                "lich_su", "Lịch Sử",
-                "dia_li", "Địa Lý",
-                "gdcd", "GDCD"
-        );
+        Map<String, String> subjectMap = new HashMap<>();
+        subjectMap.put("toan", "Toán");
+        subjectMap.put("ngu_van", "Ngữ Văn");
+        subjectMap.put("ngoai_ngu", "Ngoại Ngữ");
+        subjectMap.put("vat_li", "Vật Lý");
+        subjectMap.put("hoa_hoc", "Hóa Học");
+        subjectMap.put("sinh_hoc", "Sinh Học");
+        subjectMap.put("lich_su", "Lịch Sử");
+        subjectMap.put("dia_li", "Địa Lý");
+        subjectMap.put("gdcd", "GDCD");
 
         // Tạo môn thi nếu chưa có
         subjectMap.values().forEach(tenMon -> {
@@ -76,85 +77,123 @@ public class DataInitializer implements CommandLineRunner {
                         .stream()
                         .collect(Collectors.toMap(NgoaiNgu::getMaNgoaiNgu, n -> n));
 
+        System.out.println(">>> Connecting to CSV: " + CSV_URL);
         URL url = new URL(CSV_URL);
         BufferedReader reader =
                 new BufferedReader(new InputStreamReader(url.openStream()));
 
         String[] headers = reader.readLine().split(",");
-        String line;
+        System.out.println(">>> CSV Headers: " + Arrays.toString(headers));
 
+        // Kiểm tra headers có khớp subjectMap không
+        for (int i = 1; i < headers.length - 1; i++) {
+            String h = headers[i].trim();
+            if (!subjectMap.containsKey(h)) {
+                System.out.println("⚠️ Header không có trong subjectMap: [" + h + "]");
+            }
+        }
+
+        String line;
         int batchSize = 1000;
         int totalInserted = 0;
+        int skippedRows = 0;
         List<Object[]> batchArgs = new ArrayList<>();
 
         while ((line = reader.readLine()) != null) {
 
             String[] columns = line.split(",", -1);
-            String sbd = columns[0];
 
-            String maNgoaiNgu = columns[headers.length - 1];
+            if (columns.length < headers.length) {
+                skippedRows++;
+                continue;
+            }
+
+            String sbd = columns[0].trim();
+            String maNgoaiNgu = columns[headers.length - 1].trim();
             String ngoaiNguKey = null;
 
             if (!maNgoaiNgu.isBlank()) {
-
                 NgoaiNgu nn = ngoaiNguMap.get(maNgoaiNgu);
-
                 if (nn == null) {
                     nn = new NgoaiNgu();
                     nn.setMaNgoaiNgu(maNgoaiNgu);
                     nn = ngoaiNguRepository.save(nn);
                     ngoaiNguMap.put(maNgoaiNgu, nn);
                 }
-
                 ngoaiNguKey = nn.getMaNgoaiNgu();
             }
 
             for (int i = 1; i < headers.length - 1; i++) {
 
-                if (!columns[i].isBlank()) {
+                String colValue = columns[i].trim();
+                if (colValue.isBlank()) continue;
 
-                    Double diem = Double.parseDouble(columns[i]);
-                    String tenMon = subjectMap.get(headers[i]);
-                    MonThi monThi = monThiMap.get(tenMon);
+                String headerKey = headers[i].trim();
+                String tenMon = subjectMap.get(headerKey);
 
+                if (tenMon == null) {
+                    System.out.println("⚠️ Không tìm thấy môn cho header: [" + headerKey + "]");
+                    continue;
+                }
+
+                MonThi monThi = monThiMap.get(tenMon);
+                if (monThi == null) {
+                    System.out.println("⚠️ Không tìm thấy MonThi trong DB: [" + tenMon + "]");
+                    continue;
+                }
+
+                try {
+                    Double diem = Double.parseDouble(colValue);
                     batchArgs.add(new Object[]{
                             sbd,
                             monThi.getId(),
                             diem,
-                            headers[i].equals("ngoai_ngu") ? ngoaiNguKey : null
+                            headers[i].trim().equals("ngoai_ngu") ? ngoaiNguKey : null
                     });
+                } catch (NumberFormatException e) {
+                    System.out.println("⚠️ Không parse được điểm: [" + colValue + "] tại sbd=" + sbd);
                 }
             }
 
             if (batchArgs.size() >= batchSize) {
+                try {
+                    jdbcTemplate.batchUpdate(
+                            "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) " +
+                                    "VALUES (?, ?, ?, ?) " +
+                                    "ON DUPLICATE KEY UPDATE diem = VALUES(diem)",
+                            batchArgs
+                    );
+                    totalInserted += batchArgs.size();
+                    System.out.println("Inserted rows: " + totalInserted);
+                } catch (Exception e) {
+                    System.err.println("❌ BATCH INSERT ERROR: " + e.getMessage());
+                    e.printStackTrace();
+                }
+                batchArgs.clear();
+            }
+        }
 
+        // Insert phần còn lại
+        if (!batchArgs.isEmpty()) {
+            try {
                 jdbcTemplate.batchUpdate(
-                        // 🔥 Thêm ON DUPLICATE để không crash
                         "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) " +
                                 "VALUES (?, ?, ?, ?) " +
                                 "ON DUPLICATE KEY UPDATE diem = VALUES(diem)",
                         batchArgs
                 );
-
                 totalInserted += batchArgs.size();
-                batchArgs.clear();
-
-                System.out.println("Inserted rows: " + totalInserted);
+            } catch (Exception e) {
+                System.err.println("❌ FINAL BATCH INSERT ERROR: " + e.getMessage());
+                e.printStackTrace();
             }
-        }
-
-        if (!batchArgs.isEmpty()) {
-            jdbcTemplate.batchUpdate(
-                    "INSERT INTO diem_thi (sbd, mon_thi_id, diem, ma_ngoai_ngu) " +
-                            "VALUES (?, ?, ?, ?) " +
-                            "ON DUPLICATE KEY UPDATE diem = VALUES(diem)",
-                    batchArgs
-            );
-            totalInserted += batchArgs.size();
         }
 
         reader.close();
 
         System.out.println(">>> IMPORT DONE. Total processed: " + totalInserted + " <<<");
+        if (skippedRows > 0) {
+            System.out.println("⚠️ Skipped rows (thiếu cột): " + skippedRows);
+        }
     }
 }
