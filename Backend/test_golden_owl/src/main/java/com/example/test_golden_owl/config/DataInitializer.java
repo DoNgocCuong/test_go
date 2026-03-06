@@ -117,7 +117,7 @@ public class DataInitializer implements CommandLineRunner {
                 if (nn == null) {
                     nn = new NgoaiNgu();
                     nn.setMaNgoaiNgu(maNgoaiNgu);
-                    nn = ngoaiNguRepository.save(nn);
+                    nn = ngoaiNguRepository.saveAndFlush(nn);
                     ngoaiNguMap.put(maNgoaiNgu, nn);
                 }
                 ngoaiNguKey = nn.getMaNgoaiNgu();
